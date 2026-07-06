@@ -1,20 +1,26 @@
 const API_BASE = '/api';
 
-let refreshSecret = null;
+let refreshSecret = localStorage.getItem('bonario_refresh_secret') || null;
 
 export function setRefreshSecret(s) {
   refreshSecret = s;
+  if (s) {
+    localStorage.setItem('bonario_refresh_secret', s);
+  } else {
+    localStorage.removeItem('bonario_refresh_secret');
+  }
 }
 
 async function apiRequest(endpoint, options = {}) {
+  const { silent = false, ...fetchOptions } = options;
   const url = `${API_BASE}${endpoint}`;
   const config = {
     headers: {
       'Content-Type': 'application/json',
       ...(refreshSecret ? { 'x-bonario-secret': refreshSecret } : {}),
-      ...options.headers
+      ...fetchOptions.headers
     },
-    ...options
+    ...fetchOptions
   };
 
   try {
@@ -35,7 +41,9 @@ async function apiRequest(endpoint, options = {}) {
     }
     return await response.text();
   } catch (error) {
-    console.error(`[Bonario] API Error [${endpoint}]:`, error);
+    if (!silent) {
+      console.error(`[Bonario] API Error [${endpoint}]:`, error);
+    }
     throw error;
   }
 }
@@ -79,7 +87,7 @@ export const api = {
 
   async getDevSecret() {
     try {
-      return await apiRequest('/auth/dev-secret');
+      return await apiRequest('/auth/dev-secret', { silent: true });
     } catch {
       return null;
     }

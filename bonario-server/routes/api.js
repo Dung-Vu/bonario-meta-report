@@ -155,7 +155,7 @@ router.get('/refresh/status', (req, res) => {
 
 router.get('/auth/dev-secret', (req, res) => {
   if (process.env.BONARIO_REFRESH_SECRET) {
-    return res.status(404).json({ error: 'Not found' });
+    return res.json({ secret: null, note: 'Dev secret disabled because BONARIO_REFRESH_SECRET is set' });
   }
   res.json({ secret: getRefreshSecret(), note: 'Dev only — set BONARIO_REFRESH_SECRET in production' });
 });

@@ -31,9 +31,10 @@ import { saveOdooPull } from './storage.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const ODOO_BASE_URL = 'https://bonario-vietnam.odoo.com';
-const ODOO_DB = 'bonario-vietnam';
-const JSONRPC_URL = `${ODOO_BASE_URL}/jsonrpc`;
+function getJsonRpcUrl() {
+  const url = process.env.ODOO_URL || 'https://bonario-vietnam.odoo.com';
+  return `${url.replace(/\/$/, '')}/jsonrpc`;
+}
 
 // Minimum interval between RPC calls — Odoo XML-RPC has no usage headers,
 // so we self-throttle to stay friendly with their backend.
@@ -47,12 +48,20 @@ let lastApiCallTime = 0;
 let credsCache = null;
 function loadCreds() {
   if (credsCache) return credsCache;
-  const username = process.env.ODOO_PROD_USERNAME;
-  const apiKey = process.env.ODOO_PROD_API_KEY;
-  if (!username || !apiKey) {
-    throw new Error('ODOO_PROD_USERNAME and ODOO_PROD_API_KEY must be set in .env');
+  const db = process.env.ODOO_DB || 'bonario-vietnam';
+  const userIdStr = process.env.ODOO_USER_ID;
+  const apiKey = process.env.ODOO_API_KEY;
+
+  if (!userIdStr || !apiKey) {
+    throw new Error('ODOO_USER_ID and ODOO_API_KEY must be set in .env');
   }
-  credsCache = { username, apiKey, db: ODOO_DB };
+
+  const uid = parseInt(userIdStr, 10);
+  if (isNaN(uid)) {
+    throw new Error('ODOO_USER_ID must be a valid number');
+  }
+
+  credsCache = { uid, db, apiKey };
   return credsCache;
 }
 
@@ -72,7 +81,7 @@ async function jsonRpcCall(service, method, args, kwargs = {}) {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       await throttle();
-      const res = await axios.post(JSONRPC_URL, {
+      const res = await axios.post(getJsonRpcUrl(), {
         jsonrpc: '2.0',
         method: 'call',
         params: { service, method, args, ...(Object.keys(kwargs).length ? { kwargs } : {}) },
@@ -103,14 +112,12 @@ async function jsonRpcCall(service, method, args, kwargs = {}) {
   throw lastErr;
 }
 
-// ── Connection (authenticate via common) ─────────────────────────────────────
+// ── Connection (authenticate bypassed via local credentials) ────────────────
 let authCache = null;
 async function authenticate(force = false) {
   if (authCache && !force) return authCache;
-  const { username, apiKey, db } = loadCreds();
-  const uid = await jsonRpcCall('common', 'authenticate', [db, username, apiKey, {}]);
-  if (!uid) throw new Error('Odoo authentication returned false');
-  authCache = { uid, db, username, apiKey };
+  const { db, uid, apiKey } = loadCreds();
+  authCache = { uid, db, apiKey };
   return authCache;
 }
 
@@ -297,7 +304,7 @@ export const __test = {
   evaluateStages,
   bucketLeadsByDay,
   aggregateDailyInRange,
-  JSONRPC_URL
+  get JSONRPC_URL() { return getJsonRpcUrl(); }
 };
 
 export default {
