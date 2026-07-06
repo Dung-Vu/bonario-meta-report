@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bonario Ads Report</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <p class="brand-kicker">Bonario Ads</p>
+          <h1 class="brand-name">Report</h1>
+        </div>
+      </div>
+      <nav class="topbar-nav" id="topbarNav">
+        <a href="#overview" data-page="overview" class="nav-link active">Overview</a>
+        <a href="#detail" data-page="detail" class="nav-link">Per-Ad Detail</a>
+      </nav>
+      <div class="topbar-actions">
+        <span id="accountName" class="account-name hidden"></span>
+        <span id="rateLimitBadge" class="rate-limit-badge" title="API usage last hour"></span>
+        <span id="connectionStatus" class="status-badge status-disconnected">Disconnected</span>
+        <button id="refreshBtn" class="btn btn-primary">
+          <span class="btn-label">Refresh</span>
+        </button>
+        <button id="refreshCrmBtn" class="btn btn-secondary">
+          <span class="btn-label">Refresh CRM</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div id="loadingState" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading data...</p>
+      </div>
+
+      <div id="errorState" class="error-state hidden">
+        <h3>Failed to load data</h3>
+        <p id="errorMessage">Something went wrong</p>
+        <button class="btn btn-primary" onclick="location.reload()">Retry</button>
+      </div>
+
+      <div id="dashboardContent" class="hidden">
+        <!-- FILTER PANEL -->
+        <section class="filter-panel" id="filterPanel">
+          <div class="filter-group">
+            <label for="filterSince">Date From</label>
+            <input type="date" id="filterSince">
+          </div>
+          <div class="filter-group">
+            <label for="filterUntil">Date To</label>
+            <input type="date" id="filterUntil">
+          </div>
+          <div class="filter-group date-presets">
+            <label>Quick Range</label>
+            <div class="preset-row">
+              <button type="button" class="preset-chip" data-preset="7d">7d</button>
+              <button type="button" class="preset-chip" data-preset="30d">30d</button>
+              <button type="button" class="preset-chip" data-preset="90d">90d</button>
+              <button type="button" class="preset-chip" data-preset="month">Month</button>
+              <button type="button" class="preset-chip" data-preset="all">All</button>
+            </div>
+          </div>
+          <div class="filter-group">
+            <label for="filterStatus">Status</label>
+            <select id="filterStatus">
+              <option value="">All</option>
+              <option value="ACTIVE">Active</option>
+              <option value="PAUSED">Paused</option>
+              <option value="DELETED">Deleted</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filterObjective">Objective</label>
+            <select id="filterObjective">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filterCampaign">Campaign</label>
+            <select id="filterCampaign">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filterAdSet">Ad Set</label>
+            <select id="filterAdSet">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filterBudgetMin">Budget Min</label>
+            <input type="number" id="filterBudgetMin" placeholder="0">
+          </div>
+          <div class="filter-group">
+            <label for="filterBudgetMax">Budget Max</label>
+            <input type="number" id="filterBudgetMax" placeholder="No limit">
+          </div>
+          <div class="filter-actions">
+            <button id="applyFilters" class="btn btn-filter">Apply</button>
+            <button id="clearFilters" class="btn btn-clear">Clear</button>
+          </div>
+        </section>
+
+        <!-- ODOO CRM FUNNEL FILTER -->
+        <section class="odoo-filter-panel" id="odooFilterPanel">
+          <div class="odoo-filter-header">
+            <span class="odoo-filter-tag">CRM (Odoo)</span>
+            <h3 class="odoo-filter-title">Funnel date range</h3>
+            <span id="odooScopeBadge" class="scope-badge" hidden>—</span>
+          </div>
+          <div class="odoo-filter-body">
+            <div class="filter-group">
+              <label for="odooFilterSince">Date From</label>
+              <input type="date" id="odooFilterSince">
+            </div>
+            <div class="filter-group">
+              <label for="odooFilterUntil">Date To</label>
+              <input type="date" id="odooFilterUntil">
+            </div>
+            <div class="filter-group date-presets">
+              <label>Quick Range</label>
+              <div class="preset-row">
+                <button type="button" class="preset-chip" data-odoo-preset="7d">7d</button>
+                <button type="button" class="preset-chip" data-odoo-preset="30d">30d</button>
+                <button type="button" class="preset-chip" data-odoo-preset="90d">90d</button>
+                <button type="button" class="preset-chip" data-odoo-preset="month">Month</button>
+                <button type="button" class="preset-chip" data-odoo-preset="all">All</button>
+              </div>
+            </div>
+            <div class="odoo-filter-actions">
+              <button id="applyOdooFilters" class="btn btn-filter" type="button">Apply</button>
+              <button id="clearOdooFilters" class="btn btn-clear" type="button">Clear</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- CRM FUNNEL SECTION -->
+        <section class="funnel-section" id="funnelSection">
+          <div class="section-heading funnel-heading">
+            <div>
+              <p class="section-kicker">CRM Funnel</p>
+              <h2 class="section-title">Lead pipeline — Bonario &amp; Ordinaire</h2>
+            </div>
+            <span id="funnelFreshnessLabel" class="freshness-label" title=""></span>
+          </div>
+
+          <div class="funnel-grid">
+            <div class="funnel-column">
+              <h3 class="funnel-company">Bonario</h3>
+              <div class="kpi-grid funnel-kpi-grid">
+                <div class="kpi-card">
+                  <span class="kpi-label">Tổng Lead CRM</span>
+                  <strong class="kpi-value" id="bonTongLeadCrm">--</strong>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">Total Lead (Trừ tự động)</span>
+                  <strong class="kpi-value" id="bonTotalLeadExclAuto">--</strong>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">MKT Qualified Lead</span>
+                  <strong class="kpi-value" id="bonMqlCount">--</strong>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">Sales Qualified Lead</span>
+                  <strong class="kpi-value" id="bonSqlCount">--</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="funnel-column">
+              <h3 class="funnel-company">Ordinaire</h3>
+              <div class="kpi-grid funnel-kpi-grid">
+                <div class="kpi-card">
+                  <span class="kpi-label">Tổng Lead CRM</span>
+                  <strong class="kpi-value" id="ordTongLeadCrm">--</strong>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">Total Lead (Trừ tự động)</span>
+                  <strong class="kpi-value" id="ordTotalLeadExclAuto">--</strong>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">MKT Qualified Lead</span>
+                  <strong class="kpi-value" id="ordMqlCount">--</strong>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">Sales Qualified Lead</span>
+                  <strong class="kpi-value" id="ordSqlCount">--</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="funnel-note" id="funnelNote">Counts based on <code>create_date</code> of leads. <a href="#" id="funnelRefreshHint">Pull from Odoo</a> to refresh snapshot.</p>
+        </section>
+
+        <!-- OVERVIEW PAGE -->
+        <div id="page-overview" class="page active">
+          <section class="section section-dark" id="overview">
+            <div class="section-heading">
+              <p class="section-kicker">Overview</p>
+              <h2 class="section-title">Performance at a glance</h2>
+              <span id="freshnessLabel" class="freshness-label" title=""></span>
+            </div>
+
+            <div class="kpi-grid" id="kpiGrid">
+              <div class="kpi-card">
+                <span class="kpi-label">Total Spend</span>
+                <strong class="kpi-value" id="kpiSpend">0 VND</strong>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">Impressions</span>
+                <strong class="kpi-value" id="kpiImpressions">0</strong>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">Reach</span>
+                <strong class="kpi-value" id="kpiReach">0</strong>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">Clicks</span>
+                <strong class="kpi-value" id="kpiClicks">0</strong>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">CTR</span>
+                <strong class="kpi-value" id="kpiCtr">0%</strong>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">CPC</span>
+                <strong class="kpi-value" id="kpiCpc">0 VND</strong>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">Avg Freq</span>
+                <strong class="kpi-value" id="kpiFreq">0</strong>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">Conversions</span>
+                <strong class="kpi-value" id="kpiConversions">0</strong>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">Purchases</span>
+                <strong class="kpi-value" id="kpiPurchases">0</strong>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">Msg Conversations</span>
+                <strong class="kpi-value" id="kpiMsgConversations">0</strong>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">New Msg Contacts</span>
+                <strong class="kpi-value" id="kpiNewMsgContacts">0</strong>
+              </div>
+            </div>
+
+            <div class="charts-grid">
+              <div class="chart-card">
+                <p class="card-kicker">Trend</p>
+                <h3 class="card-title">Spend Over Time</h3>
+                <div class="chart-wrapper">
+                  <canvas id="spendTrendChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-card">
+                <p class="card-kicker">Ranking</p>
+                <h3 class="card-title">Top Campaigns by Spend</h3>
+                <div class="chart-wrapper">
+                  <canvas id="campaignComparisonChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="charts-grid" style="margin-top:1rem;">
+              <div class="chart-card">
+                <p class="card-kicker">Allocation</p>
+                <h3 class="card-title">Spend by Objective</h3>
+                <div class="chart-wrapper">
+                  <canvas id="objectiveChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-card">
+                <p class="card-kicker">Status</p>
+                <h3 class="card-title">Spend by Status</h3>
+                <div class="chart-wrapper">
+                  <canvas id="statusChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="charts-grid" style="margin-top:1rem;">
+              <div class="chart-card">
+                <p class="card-kicker">Efficiency</p>
+                <h3 class="card-title">CTR vs CPC</h3>
+                <div class="chart-wrapper">
+                  <canvas id="scatterChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-card">
+                <p class="card-kicker">Outcomes</p>
+                <h3 class="card-title">Actions Breakdown</h3>
+                <div class="chart-wrapper">
+                  <canvas id="actionsChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="charts-grid" style="margin-top:1rem;">
+              <div class="chart-card">
+                <p class="card-kicker">Messaging</p>
+                <h3 class="card-title">Msg Contacts — Daily</h3>
+                <div class="chart-wrapper">
+                  <canvas id="msgDailyChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-card">
+                <p class="card-kicker">Messaging</p>
+                <h3 class="card-title">Msg Contacts — Weekly</h3>
+                <div class="chart-wrapper">
+                  <canvas id="msgWeeklyChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- DETAIL PAGE -->
+        <div id="page-detail" class="page hidden">
+          <section class="section section-light" id="detail">
+            <div class="section-heading">
+              <p class="section-kicker" style="color:var(--ink-mute)">Detail</p>
+              <h2 class="section-title" style="color:var(--ink)">Per-ad breakdown</h2>
+            </div>
+
+            <div class="sort-controls">
+              <label for="sortBy">Sort by</label>
+              <select id="sortBy">
+                <option value="spend">Spend</option>
+                <option value="impressions">Impressions</option>
+                <option value="reach">Reach</option>
+                <option value="clicks">Clicks</option>
+                <option value="ctr">CTR</option>
+                <option value="cpc">CPC</option>
+                <option value="purchases">Purchases</option>
+                <option value="totalMsgContacts">Total Msg Contacts</option>
+                <option value="newMsgContacts">New Msg Contacts</option>
+                <option value="conversions">Conversions</option>
+              </select>
+              <div class="sort-toggle">
+                <button id="sortAsc">Asc</button>
+                <button id="sortDesc" class="active">Desc</button>
+              </div>
+              <button id="exportCsv" class="btn btn-export" type="button">Export CSV</button>
+              <span id="resultCount" style="margin-left:auto;font-size:0.8rem;color:var(--ink-mute);">0 ads</span>
+            </div>
+
+            <div class="detail-table-wrapper">
+              <table class="detail-table" id="detailTable">
+                <thead>
+                  <tr>
+                    <th>Ad Name</th>
+                    <th>Campaign</th>
+                    <th>Ad Set</th>
+                    <th>Status</th>
+                    <th style="text-align:right">Spend</th>
+                    <th style="text-align:right">Impressions</th>
+                    <th style="text-align:right">Reach</th>
+                    <th style="text-align:right">Clicks</th>
+                    <th style="text-align:right">CTR</th>
+                    <th style="text-align:right">CPC</th>
+                    <th style="text-align:right">Purchases</th>
+                    <th style="text-align:right">Msg Conv.</th>
+                    <th style="text-align:right">Cost/Purchase</th>
+                  </tr>
+                </thead>
+                <tbody id="detailTableBody"></tbody>
+              </table>
+            </div>
+            <div class="detail-pager">
+              <button id="detailPrev" class="btn btn-pager" type="button" disabled>‹ Prev</button>
+              <span id="detailPageInfo" class="pager-info"></span>
+              <button id="detailNext" class="btn btn-pager" type="button" disabled>Next ›</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <span>Bonario Ads Report</span>
+      <span id="footerDate">--</span>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

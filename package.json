@@ -1,0 +1,21 @@
+{
+  "name": "bonario-meta-report",
+  "version": "1.0.0",
+  "description": "Bonario Meta Ads Report Dashboard",
+  "type": "module",
+  "scripts": {
+    "start": "node bonario-server/index.js",
+    "dev": "node --watch bonario-server/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.10.6",
+    "vitest": "^2.1.9"
+  }
+}

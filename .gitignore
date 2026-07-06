@@ -1,0 +1,5 @@
+node_modules/
+bonario-output/
+meta-credentials*.json
+.env
+.env.*skills-lock.json

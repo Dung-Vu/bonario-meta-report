@@ -1,0 +1,21 @@
+services:
+  bonario-meta-report:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bonario-meta-report:latest
+    container_name: bonario-meta-report
+    restart: unless-stopped
+    ports:
+      - "3100:3001"
+    volumes:
+      - ./bonario-output:/app/bonario-output
+    env_file:
+      - .env
+    networks:
+      - shared-tunnel
+
+networks:
+  shared-tunnel:
+    name: bonario-shared-tunnel
+    external: true
