@@ -1,6 +1,9 @@
 import api, { setRefreshSecret } from './api-client.js';
 import { updateCharts } from './charts.js';
-import { applyFilters, sortCampaigns, expandToAds, sortAds } from './filters.js';
+import {
+  applyFilters, sortCampaigns, expandToAds, sortAds,
+  classifyCampaignCompany, filterCampaignsByCompany, aggregateByAdSet, sortAdSets
+} from './filters.js';
 import { renderFunnelKpis, updateFunnelFreshness, clearFunnelKpis } from './funnel.js';
 import {
   formatNumber, formatCurrency, formatDate, formatDateShort,
@@ -20,12 +23,14 @@ const state = {
   funnel: null,
   funnelUpdatedAt: null,
   odooFilter: { since: null, until: null },
+  companyFilter: 'all',
   activeFilters: {
     since: null, until: null, campaigns: [], status: '',
     objective: '', adSet: '', budgetMin: null, budgetMax: null
   },
   sortBy: 'spend',
   sortDirection: 'desc',
+  detailGranularity: 'adSet', // 'adSet' | 'ad'
   currentPage: 'overview',
   detailPage: 0,
   detailPageSize: 50
@@ -75,74 +80,212 @@ function updateFreshness() {
 }
 
 function updateKPIs(campaigns) {
-  let totalSpend = 0, totalImpressions = 0, totalReach = 0, totalClicks = 0;
-  let totalPurchases = 0, totalMsgContacts = 0, totalNewMsgContacts = 0;
+  // KPIs render 3 columns: Bon / Ord / Rev. Each column is total of campaigns
+  // whose name classifies as that company. The "companyFilter" in the Meta
+  // panel dims non-selected companies but doesn't exclude them — the row
+  // totals remain comparable.
+  const perCompany = { bon: zeroTotals(), ord: zeroTotals(), rev: zeroTotals() };
 
   const since = state.activeFilters.since;
   const until = state.activeFilters.until;
   const dateFilterActive = !!(since || until);
 
-  // When date filter is active, prefer the account-level daily breakdown
-  // (the only daily data we have). Fall back to campaign-level insights otherwise.
+  // When date filter is active, prefer the account-level daily breakdown —
+  // but we cannot split that by company (accountDaily has no campaign id).
+  // In that case, only the "totals" KPI row is meaningful; per-company cells
+  // show empty / dim. Documented behavior, not a bug.
   if (dateFilterActive && state.accountDaily.length > 0) {
+    const dailyTotals = zeroTotals();
     for (const d of state.accountDaily) {
       if (since && d.date < since) continue;
       if (until && d.date > until) continue;
-      totalSpend += d.spend || 0;
-      totalImpressions += d.impressions || 0;
-      totalReach += d.reach || 0;
-      totalClicks += d.clicks || 0;
-      totalPurchases += d.purchases || 0;
-      totalMsgContacts += d.totalMsgContacts || 0;
-      totalNewMsgContacts += d.newMsgContacts || 0;
+      dailyTotals.spend += d.spend || 0;
+      dailyTotals.impressions += d.impressions || 0;
+      dailyTotals.reach += d.reach || 0;
+      dailyTotals.clicks += d.clicks || 0;
+      dailyTotals.purchases += d.purchases || 0;
+      dailyTotals.msgContacts += d.totalMsgContacts || 0;
+      dailyTotals.newMsg += d.newMsgContacts || 0;
     }
-  } else {
-    for (const c of campaigns) {
-      const i = c.insights || {};
-      totalSpend += i.spend || 0;
-      totalImpressions += i.impressions || 0;
-      totalReach += i.reach || 0;
-      totalClicks += i.clicks || 0;
-      totalPurchases += i.purchases || 0;
-      totalMsgContacts += i.totalMsgContacts || 0;
-      totalNewMsgContacts += i.newMsgContacts || 0;
-    }
+    renderKpiRow('spend', { bon: null, ord: null, rev: null }, dailyTotals);
+    renderKpiRow('impressions', { bon: null, ord: null, rev: null }, dailyTotals);
+    renderKpiRow('reach', { bon: null, ord: null, rev: null }, dailyTotals);
+    renderKpiRow('clicks', { bon: null, ord: null, rev: null }, dailyTotals);
+    renderKpiRow('purchases', { bon: null, ord: null, rev: null }, dailyTotals);
+    renderKpiRow('msgConv', { bon: null, ord: null, rev: null }, dailyTotals);
+    renderKpiRow('newMsg', { bon: null, ord: null, rev: null }, dailyTotals);
+    // Derived rates still computable from the day-aggregated totals
+    const total = dailyTotals;
+    renderKpiRow('ctr', { bon: null, ord: null, rev: null }, total);
+    renderKpiRow('cpc', { bon: null, ord: null, rev: null }, total);
+    renderKpiRow('freq', { bon: null, ord: null, rev: null }, total);
+    renderKpiRow('conv', { bon: null, ord: null, rev: null }, total);
+    state.insights = { ...dailyTotals, avgCtr: rate(total), avgCpc: rate2(total), avgFreq: rate3(total) };
+    return;
   }
-  const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions * 100) : 0;
-  const avgCpc = totalClicks > 0 ? (totalSpend / totalClicks) : 0;
-  const avgFreq = totalReach > 0 ? (totalImpressions / totalReach) : 0;
 
-  document.getElementById('kpiSpend').textContent = formatCurrency(totalSpend);
-  document.getElementById('kpiImpressions').textContent = formatNumber(totalImpressions);
-  document.getElementById('kpiReach').textContent = formatNumber(totalReach);
-  document.getElementById('kpiClicks').textContent = formatNumber(totalClicks);
-  document.getElementById('kpiCtr').textContent = formatNumber(avgCtr, 2) + '%';
-  document.getElementById('kpiCpc').textContent = formatCurrency(avgCpc);
-  document.getElementById('kpiFreq').textContent = formatNumber(avgFreq, 2);
-  document.getElementById('kpiPurchases').textContent = formatNumber(totalPurchases);
-  document.getElementById('kpiMsgConversations').textContent = formatNumber(totalMsgContacts);
-  document.getElementById('kpiNewMsgContacts').textContent = formatNumber(totalNewMsgContacts);
-  document.getElementById('kpiConversions').textContent = formatNumber(totalPurchases);
+  // No date filter: aggregate per campaign, then bucket by company classifier
+  for (const c of campaigns) {
+    const company = classifyCampaignCompany(c.name);
+    const bucket = perCompany[company];
+    if (!bucket) continue;
+    const i = c.insights || {};
+    bucket.spend += i.spend || 0;
+    bucket.impressions += i.impressions || 0;
+    bucket.reach += i.reach || 0;
+    bucket.clicks += i.clicks || 0;
+    bucket.purchases += i.purchases || 0;
+    bucket.msgContacts += i.totalMsgContacts || 0;
+    bucket.newMsg += i.newMsgContacts || 0;
+  }
+  // "Unknown" campaigns (campaigns whose name has no company substring)
+  // are excluded from per-company cells but still counted in the totals row.
+
+  renderKpiRow('spend', perCompany);
+  renderKpiRow('impressions', perCompany);
+  renderKpiRow('reach', perCompany);
+  renderKpiRow('clicks', perCompany);
+  renderKpiRow('ctr', perCompany);
+  renderKpiRow('cpc', perCompany);
+  renderKpiRow('freq', perCompany);
+  renderKpiRow('purchases', perCompany);
+  renderKpiRow('msgConv', perCompany);
+  renderKpiRow('newMsg', perCompany);
+  renderKpiRow('conv', perCompany);
 
   state.insights = {
-    totalSpend, totalImpressions, totalReach, totalClicks,
-    totalPurchases, totalMsgContacts, totalNewMsgContacts,
-    avgCtr, avgCpc, avgFreq
+    bon: perCompany.bon,
+    ord: perCompany.ord,
+    rev: perCompany.rev,
+    total: totalsOf(perCompany)
   };
+}
+
+function zeroTotals() {
+  return { spend: 0, impressions: 0, reach: 0, clicks: 0, purchases: 0, msgContacts: 0, newMsg: 0 };
+}
+
+function totalsOf(perCompany) {
+  return {
+    spend: perCompany.bon.spend + perCompany.ord.spend + perCompany.rev.spend,
+    impressions: perCompany.bon.impressions + perCompany.ord.impressions + perCompany.rev.impressions,
+    reach: perCompany.bon.reach + perCompany.ord.reach + perCompany.rev.reach,
+    clicks: perCompany.bon.clicks + perCompany.ord.clicks + perCompany.rev.clicks,
+    purchases: perCompany.bon.purchases + perCompany.ord.purchases + perCompany.rev.purchases,
+    msgContacts: perCompany.bon.msgContacts + perCompany.ord.msgContacts + perCompany.rev.msgContacts,
+    newMsg: perCompany.bon.newMsg + perCompany.ord.newMsg + perCompany.rev.newMsg
+  };
+}
+
+function rate(t) {
+  return t.impressions > 0 ? (t.clicks / t.impressions * 100) : 0;
+}
+function rate2(t) {
+  return t.clicks > 0 ? t.spend / t.clicks : 0;
+}
+function rate3(t) {
+  return t.reach > 0 ? t.impressions / t.reach : 0;
+}
+
+// Render one KPI metric row across 3 company columns
+function renderKpiRow(metric, perCompany, totalsOverride) {
+  const fmt = (v) => {
+    if (v === null || v === undefined) return '—';
+    if (metric === 'spend' || metric === 'cpc') return formatCurrency(v);
+    if (metric === 'ctr') return formatNumber(v, 2) + '%';
+    if (metric === 'freq') return formatNumber(v, 2);
+    return formatNumber(v);
+  };
+  const dim = (v) => (v === null || v === undefined || v === 0) ? 'is-dim' : '';
+  for (const co of ['bon', 'ord', 'rev']) {
+    const el = document.getElementById(`kpi${capitalize(metric)}-${co}`);
+    if (!el) continue;
+    let value;
+    if (totalsOverride) {
+      // date-filter mode: same number for every company
+      value = formatDerived(metric, totalsOverride);
+    } else {
+      const bucket = perCompany[co];
+      value = computeMetric(metric, bucket);
+    }
+    el.classList.toggle('is-dim', dim(value) === 'is-dim');
+    el.textContent = state.companyFilter === 'all' || state.companyFilter === co
+      ? fmt(value)
+      : '·';
+  }
+}
+
+function capitalize(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function computeMetric(metric, bucket) {
+  switch (metric) {
+    case 'spend': return bucket.spend;
+    case 'impressions': return bucket.impressions;
+    case 'reach': return bucket.reach;
+    case 'clicks': return bucket.clicks;
+    case 'purchases': return bucket.purchases;
+    case 'msgConv': return bucket.msgContacts;
+    case 'newMsg': return bucket.newMsg;
+    case 'ctr': return rate(bucket);
+    case 'cpc': return rate2(bucket);
+    case 'freq': return rate3(bucket);
+    case 'conv': return bucket.purchases;
+  }
+  return 0;
+}
+
+function formatDerived(metric, total) {
+  switch (metric) {
+    case 'spend': return total.spend;
+    case 'impressions': return total.impressions;
+    case 'reach': return total.reach;
+    case 'clicks': return total.clicks;
+    case 'purchases': return total.purchases;
+    case 'msgConv': return total.msgContacts;
+    case 'newMsg': return total.newMsg;
+    case 'ctr': return rate(total);
+    case 'cpc': return rate2(total);
+    case 'freq': return rate3(total);
+    case 'conv': return total.purchases;
+  }
+  return 0;
 }
 
 function renderDetailTable(campaigns) {
   const ads = expandToAds(campaigns);
-  const sorted = sortAds(ads, state.sortBy, state.sortDirection);
+  const rows = state.detailGranularity === 'adSet'
+    ? sortAdSets(aggregateByAdSet(ads), state.sortBy, state.sortDirection)
+    : sortAds(ads, state.sortBy, state.sortDirection);
   const tbody = document.getElementById('detailTableBody');
+  const headerRow = document.getElementById('detailHeaderRow');
+  const counter = document.getElementById('resultCount');
 
-  const total = sorted.length;
+  // Update header columns when granularity changes
+  if (headerRow) {
+    const baseHeaders = state.detailGranularity === 'adSet'
+      ? ['Campaign', 'Ad Set', '# Ads', 'Status', 'Spend', 'Impressions', 'Reach', 'Clicks', 'CTR', 'CPC', 'Purchases', 'Msg Conv.', 'Cost/Purchase']
+      : ['Ad Name', 'Campaign', 'Ad Set', 'Status', 'Spend', 'Impressions', 'Reach', 'Clicks', 'CTR', 'CPC', 'Purchases', 'Msg Conv.', 'Cost/Purchase'];
+    headerRow.innerHTML = '';
+    for (let i = 0; i < baseHeaders.length; i++) {
+      const h = baseHeaders[i];
+      const th = document.createElement('th');
+      th.textContent = h;
+      if (i > 3) th.style.textAlign = 'right';
+      headerRow.appendChild(th);
+    }
+  }
+
+  const total = rows.length;
   const start = state.detailPage * state.detailPageSize;
   const end = Math.min(start + state.detailPageSize, total);
-  const page = sorted.slice(start, end);
+  const page = rows.slice(start, end);
 
-  document.getElementById('resultCount').textContent =
-    total === 0 ? '0 ads' : `${start + 1}-${end} of ${total} ads`;
+  const rowLabel = state.detailGranularity === 'adSet' ? 'ad sets' : 'ads';
+  if (counter) {
+    counter.textContent = total === 0 ? `0 ${rowLabel}` : `${start + 1}-${end} of ${total} ${rowLabel}`;
+  }
 
   const prevBtn = document.getElementById('detailPrev');
   const nextBtn = document.getElementById('detailNext');
@@ -158,42 +301,76 @@ function renderDetailTable(campaigns) {
     const td = document.createElement('td');
     td.colSpan = 14;
     td.style.cssText = 'text-align:center;padding:2rem;color:var(--text-secondary);';
-    td.textContent = 'No ads match the current filters';
+    td.textContent = `No ${rowLabel} match the current filters`;
     tr.appendChild(td);
     tbody.appendChild(tr);
     return;
   }
 
   const frag = document.createDocumentFragment();
-  for (const ad of page) {
-    const i = ad.insights || {};
-    const statusClass = getStatusClass(ad.adStatus || ad.campaignStatus);
+  for (const row of page) {
+    const i = row.insights || {};
+    const statusClass = getStatusClass(row.status || row.campaignStatus);
+
     const tr = document.createElement('tr');
 
-    const adNameTd = document.createElement('td');
-    const adNameSpan = document.createElement('span');
-    adNameSpan.className = 'ad-name';
-    adNameSpan.textContent = ad.adName || 'Unknown';
-    adNameTd.appendChild(adNameSpan);
+    // First cell: granularity-dependent (Ad Name OR blank)
+    if (state.detailGranularity === 'ad') {
+      const adNameTd = document.createElement('td');
+      const span = document.createElement('span');
+      span.className = 'ad-name';
+      span.textContent = row.adName || 'Unknown';
+      adNameTd.appendChild(span);
+      tr.appendChild(adNameTd);
+    } else {
+      // For ad-set rows: leave a leading blank for alignment
+      const blank = document.createElement('td');
+      blank.textContent = '';
+      tr.appendChild(blank);
+    }
 
-    const campaignRefTd = document.createElement('td');
-    const campaignRefSpan = document.createElement('span');
-    campaignRefSpan.className = 'campaign-ref';
-    campaignRefSpan.textContent = ad.campaignName || '';
-    campaignRefTd.appendChild(campaignRefSpan);
+    const campaignTd = document.createElement('td');
+    const campaignSpan = document.createElement('span');
+    campaignSpan.className = 'campaign-ref';
+    campaignSpan.textContent = row.campaignName || '';
+    campaignTd.appendChild(campaignSpan);
 
-    const adSetRefTd = document.createElement('td');
-    const adSetRefSpan = document.createElement('span');
-    adSetRefSpan.className = 'adset-ref';
-    adSetRefSpan.textContent = ad.adSetName || '';
-    adSetRefTd.appendChild(adSetRefSpan);
+    const adSetTd = document.createElement('td');
+    const adSetSpan = document.createElement('span');
+    adSetSpan.className = 'adset-ref';
+    adSetSpan.textContent = row.adSetName || '';
+    adSetTd.appendChild(adSetSpan);
 
-    const statusTd = document.createElement('td');
-    const statusSpan = document.createElement('span');
-    statusSpan.className = 'campaign-status ' + statusClass;
-    statusSpan.textContent = ad.adStatus || ad.campaignStatus || 'UNKNOWN';
-    statusTd.appendChild(statusSpan);
+    // 4th cell: # Ads OR Status depending on granularity
+    const cell4Td = document.createElement('td');
+    if (state.detailGranularity === 'adSet') {
+      cell4Td.textContent = `${row.adCount || 0} ads`;
+      cell4Td.style.textAlign = 'right';
+    } else {
+      const statusSpan = document.createElement('span');
+      statusSpan.className = 'campaign-status ' + statusClass;
+      statusSpan.textContent = row.status || row.campaignStatus || 'UNKNOWN';
+      cell4Td.appendChild(statusSpan);
+    }
+    tr.appendChild(campaignTd);
+    tr.appendChild(adSetTd);
+    tr.appendChild(cell4Td);
 
+    // 5th cell: Status OR # Ads (granularity-flipped)
+    if (state.detailGranularity === 'adSet') {
+      const statusTd = document.createElement('td');
+      const statusSpan = document.createElement('span');
+      statusSpan.className = 'campaign-status ' + statusClass;
+      statusSpan.textContent = row.status || row.campaignStatus || 'UNKNOWN';
+      statusTd.appendChild(statusSpan);
+      tr.appendChild(statusTd);
+    } else {
+      const blankAdCount = document.createElement('td');
+      blankAdCount.textContent = '';
+      tr.appendChild(blankAdCount);
+    }
+
+    // Right-aligned metric cells
     const rightAligned = [
       formatCurrency(i.spend),
       formatNumber(i.impressions),
@@ -203,16 +380,14 @@ function renderDetailTable(campaigns) {
       formatCurrency(i.cpc),
       formatNumber(i.purchases),
       formatNumber(i.totalMsgContacts),
-      formatCurrency(i.costPerConversion || i.costPerPurchase)
+      formatCurrency(i.costPerPurchase)
     ];
-    const tds = [adNameTd, campaignRefTd, adSetRefTd, statusTd];
     for (const text of rightAligned) {
       const td = document.createElement('td');
       td.textContent = text;
       td.style.textAlign = 'right';
-      tds.push(td);
+      tr.appendChild(td);
     }
-    for (const td of tds) tr.appendChild(td);
     frag.appendChild(tr);
   }
   tbody.appendChild(frag);
@@ -220,36 +395,59 @@ function renderDetailTable(campaigns) {
 
 function exportCurrentAdsToCSV() {
   const ads = expandToAds(state.rawData);
-  const sorted = sortAds(ads, state.sortBy, state.sortDirection);
+  const sorted = state.detailGranularity === 'adSet'
+    ? sortAdSets(aggregateByAdSet(ads), state.sortBy, state.sortDirection)
+    : sortAds(ads, state.sortBy, state.sortDirection);
   const cur = getCurrency();
-  const rows = [
-    ['Ad Name', 'Campaign', 'Ad Set', 'Status', `Spend (${cur})`, 'Impressions', 'Reach', 'Clicks', 'CTR (%)', `CPC (${cur})`, 'Purchases', 'Msg Contacts', `Cost/Purchase (${cur})`]
-  ];
-  for (const ad of sorted) {
-    const i = ad.insights || {};
-    rows.push([
-      ad.adName || '',
-      ad.campaignName || '',
-      ad.adSetName || '',
-      ad.adStatus || ad.campaignStatus || '',
-      (i.spend || 0).toFixed(0),
-      i.impressions || 0,
-      i.reach || 0,
-      i.clicks || 0,
-      (i.ctr || 0).toFixed(2),
-      (i.cpc || 0).toFixed(0),
-      i.purchases || 0,
-      i.totalMsgContacts || 0,
-      (i.costPerPurchase || 0).toFixed(0)
-    ]);
+  const baseHeader = state.detailGranularity === 'adSet'
+    ? ['Ad Set Name', 'Campaign', 'Company', '# Ads', 'Status', `Total Spend (${cur})`, 'Total Impressions', 'Total Reach', 'Total Clicks', 'CTR (%)', `Avg CPC (${cur})`, 'Total Purchases', 'Total Msg Contacts', `Cost/Purchase (${cur})`]
+    : ['Ad Name', 'Campaign', 'Ad Set', 'Status', `Spend (${cur})`, 'Impressions', 'Reach', 'Clicks', 'CTR (%)', `CPC (${cur})`, 'Purchases', 'Msg Contacts', `Cost/Purchase (${cur})`];
+  const rows = [baseHeader];
+  for (const row of sorted) {
+    const i = row.insights || {};
+    if (state.detailGranularity === 'adSet') {
+      rows.push([
+        row.adSetName || '',
+        row.campaignName || '',
+        row.company || '',
+        row.adCount || 0,
+        row.status || row.campaignStatus || '',
+        (i.spend || 0).toFixed(0),
+        i.impressions || 0,
+        i.reach || 0,
+        i.clicks || 0,
+        (i.ctr || 0).toFixed(2),
+        (i.cpc || 0).toFixed(0),
+        i.purchases || 0,
+        i.totalMsgContacts || 0,
+        (i.costPerPurchase || 0).toFixed(0)
+      ]);
+    } else {
+      rows.push([
+        row.adName || '',
+        row.campaignName || '',
+        row.adSetName || '',
+        row.adStatus || row.campaignStatus || '',
+        (i.spend || 0).toFixed(0),
+        i.impressions || 0,
+        i.reach || 0,
+        i.clicks || 0,
+        (i.ctr || 0).toFixed(2),
+        (i.cpc || 0).toFixed(0),
+        i.purchases || 0,
+        i.totalMsgContacts || 0,
+        (i.costPerPurchase || 0).toFixed(0)
+      ]);
+    }
   }
-  const filename = `bonario-ads-${new Date().toISOString().split('T')[0]}.csv`;
+  const filename = `bonario-${state.detailGranularity === 'adSet' ? 'adsets' : 'ads'}-${new Date().toISOString().split('T')[0]}.csv`;
   downloadCSV(filename, rows);
-  showToast(`Exported ${sorted.length} ads to ${filename}`, 'success');
+  showToast(`Exported ${sorted.length} ${state.detailGranularity === 'adSet' ? 'ad sets' : 'ads'} to ${filename}`, 'success');
 }
 
 function getFilteredCampaigns() {
-  return applyFilters(state.rawData, state.activeFilters);
+  const byActive = applyFilters(state.rawData, state.activeFilters);
+  return filterCampaignsByCompany(byActive, state.companyFilter);
 }
 
 function render() {
@@ -375,6 +573,8 @@ function handleApplyFilters() {
   const campaignVal = document.getElementById('filterCampaign').value;
   state.activeFilters.campaigns = campaignVal ? [campaignVal] : [];
 
+  state.companyFilter = document.getElementById('filterCompany').value || 'all';
+
   const budgetMin = document.getElementById('filterBudgetMin').value;
   const budgetMax = document.getElementById('filterBudgetMax').value;
   state.activeFilters.budgetMin = budgetMin ? parseFloat(budgetMin) : null;
@@ -393,6 +593,7 @@ function handleClearFilters() {
   document.getElementById('filterStatus').value = '';
   document.getElementById('filterObjective').value = '';
   document.getElementById('filterCampaign').value = '';
+  document.getElementById('filterCompany').value = 'all';
   document.getElementById('filterAdSet').value = '';
   document.getElementById('filterBudgetMin').value = '';
   document.getElementById('filterBudgetMax').value = '';
@@ -403,7 +604,16 @@ function handleClearFilters() {
     since: null, until: null, campaigns: [], status: '',
     objective: '', adSet: '', budgetMin: null, budgetMax: null
   };
+  state.companyFilter = 'all';
   state.detailPage = 0;
+  render();
+}
+
+function handleGranularityChange(granularity) {
+  state.detailGranularity = granularity;
+  state.detailPage = 0;
+  document.getElementById('granularityAdSet').classList.toggle('active', granularity === 'adSet');
+  document.getElementById('granularityAd').classList.toggle('active', granularity === 'ad');
   render();
 }
 
@@ -757,6 +967,8 @@ function initApp() {
 
   document.getElementById('detailPrev')?.addEventListener('click', () => handlePager(-1));
   document.getElementById('detailNext')?.addEventListener('click', () => handlePager(1));
+  document.getElementById('granularityAdSet')?.addEventListener('click', () => handleGranularityChange('adSet'));
+  document.getElementById('granularityAd')?.addEventListener('click', () => handleGranularityChange('ad'));
 
   document.getElementById('exportCsv')?.addEventListener('click', exportCurrentAdsToCSV);
 

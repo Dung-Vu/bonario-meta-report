@@ -91,6 +91,16 @@
             </select>
           </div>
           <div class="filter-group">
+            <label for="filterCompany">Campaign Company</label>
+            <select id="filterCompany">
+              <option value="all">All</option>
+              <option value="bon">Bonario</option>
+              <option value="ord">Ordinaire</option>
+              <option value="rev">Reverie</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </div>
+          <div class="filter-group">
             <label for="filterAdSet">Ad Set</label>
             <select id="filterAdSet">
               <option value="">All</option>
@@ -211,49 +221,77 @@
             </div>
 
             <div class="kpi-grid" id="kpiGrid">
-              <div class="kpi-card">
-                <span class="kpi-label">Total Spend</span>
-                <strong class="kpi-value" id="kpiSpend">0 VND</strong>
+              <div class="kpi-row kpi-row-header">
+                <span class="kpi-label kpi-row-label">Metric</span>
+                <span class="kpi-cell">Bonario</span>
+                <span class="kpi-cell">Ordinaire</span>
+                <span class="kpi-cell">Reverie</span>
               </div>
-              <div class="kpi-card">
-                <span class="kpi-label">Impressions</span>
-                <strong class="kpi-value" id="kpiImpressions">0</strong>
+              <div class="kpi-row" data-metric-row="spend">
+                <span class="kpi-label kpi-row-label">Total Spend</span>
+                <span class="kpi-cell" id="kpiSpend-bon">0</span>
+                <span class="kpi-cell" id="kpiSpend-ord">0</span>
+                <span class="kpi-cell" id="kpiSpend-rev">0</span>
               </div>
-              <div class="kpi-card">
-                <span class="kpi-label">Reach</span>
-                <strong class="kpi-value" id="kpiReach">0</strong>
+              <div class="kpi-row" data-metric-row="impressions">
+                <span class="kpi-label kpi-row-label">Impressions</span>
+                <span class="kpi-cell" id="kpiImpressions-bon">0</span>
+                <span class="kpi-cell" id="kpiImpressions-ord">0</span>
+                <span class="kpi-cell" id="kpiImpressions-rev">0</span>
               </div>
-              <div class="kpi-card">
-                <span class="kpi-label">Clicks</span>
-                <strong class="kpi-value" id="kpiClicks">0</strong>
+              <div class="kpi-row" data-metric-row="reach">
+                <span class="kpi-label kpi-row-label">Reach</span>
+                <span class="kpi-cell" id="kpiReach-bon">0</span>
+                <span class="kpi-cell" id="kpiReach-ord">0</span>
+                <span class="kpi-cell" id="kpiReach-rev">0</span>
               </div>
-              <div class="kpi-card">
-                <span class="kpi-label">CTR</span>
-                <strong class="kpi-value" id="kpiCtr">0%</strong>
+              <div class="kpi-row" data-metric-row="clicks">
+                <span class="kpi-label kpi-row-label">Clicks</span>
+                <span class="kpi-cell" id="kpiClicks-bon">0</span>
+                <span class="kpi-cell" id="kpiClicks-ord">0</span>
+                <span class="kpi-cell" id="kpiClicks-rev">0</span>
               </div>
-              <div class="kpi-card">
-                <span class="kpi-label">CPC</span>
-                <strong class="kpi-value" id="kpiCpc">0 VND</strong>
+              <div class="kpi-row" data-metric-row="ctr">
+                <span class="kpi-label kpi-row-label">CTR</span>
+                <span class="kpi-cell" id="kpiCtr-bon">0%</span>
+                <span class="kpi-cell" id="kpiCtr-ord">0%</span>
+                <span class="kpi-cell" id="kpiCtr-rev">0%</span>
               </div>
-              <div class="kpi-card">
-                <span class="kpi-label">Avg Freq</span>
-                <strong class="kpi-value" id="kpiFreq">0</strong>
+              <div class="kpi-row" data-metric-row="cpc">
+                <span class="kpi-label kpi-row-label">CPC</span>
+                <span class="kpi-cell" id="kpiCpc-bon">0</span>
+                <span class="kpi-cell" id="kpiCpc-ord">0</span>
+                <span class="kpi-cell" id="kpiCpc-rev">0</span>
               </div>
-              <div class="kpi-card">
-                <span class="kpi-label">Conversions</span>
-                <strong class="kpi-value" id="kpiConversions">0</strong>
+              <div class="kpi-row" data-metric-row="freq">
+                <span class="kpi-label kpi-row-label">Avg Freq</span>
+                <span class="kpi-cell" id="kpiFreq-bon">0</span>
+                <span class="kpi-cell" id="kpiFreq-ord">0</span>
+                <span class="kpi-cell" id="kpiFreq-rev">0</span>
               </div>
-              <div class="kpi-card">
-                <span class="kpi-label">Purchases</span>
-                <strong class="kpi-value" id="kpiPurchases">0</strong>
+              <div class="kpi-row" data-metric-row="purchases">
+                <span class="kpi-label kpi-row-label">Purchases</span>
+                <span class="kpi-cell" id="kpiPurchases-bon">0</span>
+                <span class="kpi-cell" id="kpiPurchases-ord">0</span>
+                <span class="kpi-cell" id="kpiPurchases-rev">0</span>
               </div>
-              <div class="kpi-card">
-                <span class="kpi-label">Msg Conversations</span>
-                <strong class="kpi-value" id="kpiMsgConversations">0</strong>
+              <div class="kpi-row" data-metric-row="msgConv">
+                <span class="kpi-label kpi-row-label">Msg Conversations</span>
+                <span class="kpi-cell" id="kpiMsgConv-bon">0</span>
+                <span class="kpi-cell" id="kpiMsgConv-ord">0</span>
+                <span class="kpi-cell" id="kpiMsgConv-rev">0</span>
               </div>
-              <div class="kpi-card">
-                <span class="kpi-label">New Msg Contacts</span>
-                <strong class="kpi-value" id="kpiNewMsgContacts">0</strong>
+              <div class="kpi-row" data-metric-row="newMsg">
+                <span class="kpi-label kpi-row-label">New Msg Contacts</span>
+                <span class="kpi-cell" id="kpiNewMsg-bon">0</span>
+                <span class="kpi-cell" id="kpiNewMsg-ord">0</span>
+                <span class="kpi-cell" id="kpiNewMsg-rev">0</span>
+              </div>
+              <div class="kpi-row kpi-row-total">
+                <span class="kpi-label kpi-row-label">Conversions (Purchases)</span>
+                <span class="kpi-cell" id="kpiConv-bon">0</span>
+                <span class="kpi-cell" id="kpiConv-ord">0</span>
+                <span class="kpi-cell" id="kpiConv-rev">0</span>
               </div>
             </div>
 
@@ -353,6 +391,11 @@
                 <button id="sortAsc">Asc</button>
                 <button id="sortDesc" class="active">Desc</button>
               </div>
+              <div class="granularity-toggle">
+                <span style="font-size:0.72rem;color:var(--ink-mute);text-transform:uppercase;letter-spacing:0.04em;font-weight:540;">View by</span>
+                <button id="granularityAdSet" class="active">Ad Set</button>
+                <button id="granularityAd">Ad</button>
+              </div>
               <button id="exportCsv" class="btn btn-export" type="button">Export CSV</button>
               <span id="resultCount" style="margin-left:auto;font-size:0.8rem;color:var(--ink-mute);">0 ads</span>
             </div>
@@ -360,7 +403,7 @@
             <div class="detail-table-wrapper">
               <table class="detail-table" id="detailTable">
                 <thead>
-                  <tr>
+                  <tr id="detailHeaderRow">
                     <th>Ad Name</th>
                     <th>Campaign</th>
                     <th>Ad Set</th>

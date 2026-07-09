@@ -128,4 +128,74 @@ export function sortAds(ads, sortBy, sortDirection) {
   });
 }
 
-export default { applyFilters, sortCampaigns, expandToAds, sortAds, aggregateDaily };
+// ── Company classification (from campaign name) ─────────────────────────────
+// 96/100 prod campaigns follow the `AT | <date> | <COMPANY>` pattern. The rest
+// contain "BON", "ORD", or "REV" as substrings. Priority: Ord first (most
+// common), then Bon, then Rev. Anything else = Unknown.
+export function classifyCampaignCompany(name) {
+  if (typeof name !== 'string') return 'unknown';
+  const n = name.toLowerCase();
+  if (n.includes('ord')) return 'ord';
+  if (n.includes('bon')) return 'bon';
+  if (n.includes('rev')) return 'rev';
+  return 'unknown';
+}
+
+// Filter campaigns by company classifier
+export function filterCampaignsByCompany(campaigns, companyFilter) {
+  if (!campaigns || companyFilter === 'all') return campaigns || [];
+  return campaigns.filter(c => classifyCampaignCompany(c.name) === companyFilter);
+}
+
+// Aggregate expanded-ad rows into one row per ad set, summing per-stage
+// insights. Used when the detail table is in ad-set granularity.
+const STAGE_FIELDS = ['spend', 'impressions', 'reach', 'clicks', 'purchases', 'totalMsgContacts', 'newMsgContacts'];
+
+export function aggregateByAdSet(ads) {
+  if (!Array.isArray(ads)) return [];
+  const grouped = new Map();
+  for (const ad of ads) {
+    const key = `${ad.campaignId || ''}::${ad.adSetId || ''}`;
+    let bucket = grouped.get(key);
+    if (!bucket) {
+      bucket = {
+        campaignId: ad.campaignId,
+        campaignName: ad.campaignName,
+        campaignStatus: ad.campaignStatus,
+        company: classifyCampaignCompany(ad.campaignName),
+        adSetId: ad.adSetId,
+        adSetName: ad.adSetName,
+        status: ad.adStatus || ad.campaignStatus || 'UNKNOWN',
+        adCount: 0,
+        totalMessageCount: 0,
+        insights: { spend: 0, impressions: 0, reach: 0, clicks: 0, purchases: 0, totalMsgContacts: 0, newMsgContacts: 0 }
+      };
+      grouped.set(key, bucket);
+    }
+    bucket.adCount++;
+    const i = ad.insights || {};
+    for (const f of STAGE_FIELDS) bucket.insights[f] += i[f] || 0;
+    // Reuse CTR / CPC formulas
+    const impressions = bucket.insights.impressions;
+    const clicks = bucket.insights.clicks;
+    const spend = bucket.insights.spend;
+    const purchases = bucket.insights.purchases;
+    bucket.insights.ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+    bucket.insights.cpc = clicks > 0 ? spend / clicks : 0;
+    bucket.insights.costPerPurchase = purchases > 0 ? spend / purchases : 0;
+    // Frequency at ad-set level: aggregate impressions/reach across ads
+    bucket.insights.frequency = bucket.insights.reach > 0 ? bucket.insights.impressions / bucket.insights.reach : 0;
+  }
+  return [...grouped.values()];
+}
+
+export function sortAdSets(ads, sortBy, sortDirection) {
+  if (!ads) return [];
+  return [...ads].sort((a, b) => {
+    const aVal = a.insights?.[sortBy] ?? 0;
+    const bVal = b.insights?.[sortBy] ?? 0;
+    return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+  });
+}
+
+export default { applyFilters, sortCampaigns, expandToAds, sortAds, aggregateDaily, classifyCampaignCompany, filterCampaignsByCompany, aggregateByAdSet, sortAdSets };
