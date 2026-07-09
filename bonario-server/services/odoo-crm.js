@@ -210,13 +210,52 @@ function totalsFromDaily(daily) {
 }
 
 // ── Fetch leads for one company ──────────────────────────────────────────────
+// IMPORTANT: include both active and archived (active=false) leads.
+// The funnel spreadsheet specifies `active_test = false` so the dashboard
+// counts both states. Without the explicit OR clause, Odoo's search_read
+// defaults to active=true and silently drops ~470 archived Bon leads for
+// June 2026 alone. Note: Odoo 19's Domain parser rejects `['active','in',[T,F]]`
+// as malformed — must use explicit OR with `=` operator.
+//
+// Polish notation with 6 leaves (type, user_id, active=true, active=false,
+// date>=, date<=): 3 AND prefix tokens to fuse 4 groups into one expression.
+// Layout: AND(type, user_id, OR(active=true, active=false), date>=, date<=)
+// Without dates: AND(type, user_id, OR(active=true, active=false))
+//
+// Paginates with offset/limit. Ordinaire all-time returns ~19k rows so a
+// single 5000-row page would silently truncate.
 async function fetchCompanyLeads(company, { since, until } = {}) {
-  const domain = ['&', ['type', '=', 'opportunity'], ['user_id', 'in', company.userIds]];
-  if (since) domain.push(['create_date', '>=', `${since} 00:00:00`]);
-  if (until) domain.push(['create_date', '<=', `${until} 23:59:59`]);
+  const activeOr = ['|', ['active', '=', true], ['active', '=', false]];
 
-  const result = await executeKw('crm.lead', 'search_read', [domain, LEAD_FIELDS], { limit: 5000 });
-  return Array.isArray(result) ? result : [];
+  let domain;
+  if (since && until) {
+    domain = ['&', '&', '&', '&',
+      ['type', '=', 'opportunity'],
+      ['user_id', 'in', company.userIds],
+      ...activeOr,
+      ['create_date', '>=', `${since} 00:00:00`],
+      ['create_date', '<=', `${until} 23:59:59`]];
+  } else {
+    domain = ['&', '&',
+      ['type', '=', 'opportunity'],
+      ['user_id', 'in', company.userIds],
+      ...activeOr];
+  }
+
+  const PAGE_SIZE = 5000;
+  const collected = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await executeKw('crm.lead', 'search_read',
+      [domain, LEAD_FIELDS], { limit: PAGE_SIZE, offset });
+    if (!Array.isArray(page) || page.length === 0) break;
+    collected.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return collected;
 }
 
 // ── Fetch single company funnel (with daily breakdown) ──────────────────────
