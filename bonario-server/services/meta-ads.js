@@ -168,7 +168,7 @@ async function fetchBulkInsights(dateRange, onProgress) {
   const fields = [
     'campaign_id', 'campaign_name', 'date_start', 'date_stop',
     'spend', 'impressions', 'reach', 'clicks', 'ctr', 'cpc', 'frequency',
-    'actions', 'cost_per_action_type', 'cost_per_conversion', 'currency'
+    'actions', 'cost_per_action_type', 'cost_per_conversion'
   ].join(',');
 
   const months = [];

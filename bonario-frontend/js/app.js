@@ -631,7 +631,18 @@ async function handleRefresh() {
     }
   } catch (error) {
     if (error.status === 401) {
-      showToast('Refresh requires authentication (server secret mismatch)', 'error', 6000);
+      const input = prompt('Authentication required. Please enter the BONARIO_REFRESH_SECRET:');
+      if (input !== null) {
+        const secret = input.trim();
+        if (secret) {
+          setRefreshSecret(secret);
+          showToast('Secret saved. Click refresh again to execute.', 'success');
+        } else {
+          setRefreshSecret(null);
+        }
+      } else {
+        showToast('Refresh requires authentication (server secret mismatch)', 'error', 6000);
+      }
     } else {
       showToast('Refresh failed: ' + error.message, 'error');
     }
@@ -698,7 +709,18 @@ async function handleRefreshCrm() {
     }
   } catch (error) {
     if (error.status === 401) {
-      showToast('CRM refresh requires authentication (server secret mismatch)', 'error', 6000);
+      const input = prompt('Authentication required. Please enter the BONARIO_REFRESH_SECRET:');
+      if (input !== null) {
+        const secret = input.trim();
+        if (secret) {
+          setRefreshSecret(secret);
+          showToast('Secret saved. Click refresh again to execute.', 'success');
+        } else {
+          setRefreshSecret(null);
+        }
+      } else {
+        showToast('CRM refresh requires authentication (server secret mismatch)', 'error', 6000);
+      }
     } else {
       showToast('CRM refresh failed: ' + error.message, 'error');
     }
