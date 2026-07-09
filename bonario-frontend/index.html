@@ -296,70 +296,138 @@
             </div>
 
             <div class="charts-grid">
-              <div class="chart-card">
+              <!-- OLD: 4 chart grids with 8 charts. Replaced by company sections below. -->
+            </div>
+          </section>
+
+          <!-- BONARIO PERFORMANCE -->
+          <section class="section section-dark company-section company-section--bon" id="bonPerformanceSection">
+            <div class="section-heading company-section-heading">
+              <div>
+                <p class="section-kicker company-kicker">Bonario</p>
+                <h2 class="section-title">Bonario Performance</h2>
+              </div>
+              <span id="bonFreshnessLabel" class="freshness-label" title="">--</span>
+            </div>
+
+            <div class="mini-kpi-strip" id="bonMiniKpis">
+              <div class="mini-kpi"><span class="mini-kpi-label">Spend</span><strong class="mini-kpi-value" id="bon-mini-spend">0</strong></div>
+              <div class="mini-kpi"><span class="mini-kpi-label">Impr.</span><strong class="mini-kpi-value" id="bon-mini-impressions">0</strong></div>
+              <div class="mini-kpi"><span class="mini-kpi-label">Clicks</span><strong class="mini-kpi-value" id="bon-mini-clicks">0</strong></div>
+              <div class="mini-kpi"><span class="mini-kpi-label">CTR</span><strong class="mini-kpi-value" id="bon-mini-ctr">0%</strong></div>
+              <div class="mini-kpi"><span class="mini-kpi-label">CPC</span><strong class="mini-kpi-value" id="bon-mini-cpc">0</strong></div>
+              <div class="mini-kpi"><span class="mini-kpi-label">Purch.</span><strong class="mini-kpi-value" id="bon-mini-purchases">0</strong></div>
+            </div>
+
+            <div class="chart-grid-2col">
+              <div class="chart-card chart-card-wide">
                 <p class="card-kicker">Trend</p>
                 <h3 class="card-title">Spend Over Time</h3>
-                <div class="chart-wrapper">
-                  <canvas id="spendTrendChart"></canvas>
-                </div>
+                <div class="chart-wrapper chart-wrapper-wide"><canvas id="bonSpendTrendChart"></canvas></div>
               </div>
               <div class="chart-card">
                 <p class="card-kicker">Ranking</p>
                 <h3 class="card-title">Top Campaigns by Spend</h3>
-                <div class="chart-wrapper">
-                  <canvas id="campaignComparisonChart"></canvas>
-                </div>
+                <div class="chart-wrapper"><canvas id="bonTopCampaignsChart"></canvas></div>
               </div>
-            </div>
-
-            <div class="charts-grid" style="margin-top:1rem;">
               <div class="chart-card">
                 <p class="card-kicker">Allocation</p>
                 <h3 class="card-title">Spend by Objective</h3>
-                <div class="chart-wrapper">
-                  <canvas id="objectiveChart"></canvas>
-                </div>
+                <div class="chart-wrapper"><canvas id="bonObjectiveChart"></canvas></div>
               </div>
               <div class="chart-card">
                 <p class="card-kicker">Status</p>
                 <h3 class="card-title">Spend by Status</h3>
-                <div class="chart-wrapper">
-                  <canvas id="statusChart"></canvas>
-                </div>
+                <div class="chart-wrapper"><canvas id="bonStatusChart"></canvas></div>
               </div>
-            </div>
-
-            <div class="charts-grid" style="margin-top:1rem;">
-              <div class="chart-card">
+              <div class="chart-card chart-card-wide">
                 <p class="card-kicker">Efficiency</p>
                 <h3 class="card-title">CTR vs CPC</h3>
-                <div class="chart-wrapper">
-                  <canvas id="scatterChart"></canvas>
-                </div>
+                <div class="chart-wrapper chart-wrapper-wide"><canvas id="bonScatterChart"></canvas></div>
               </div>
               <div class="chart-card">
-                <p class="card-kicker">Outcomes</p>
-                <h3 class="card-title">Actions Breakdown</h3>
-                <div class="chart-wrapper">
-                  <canvas id="actionsChart"></canvas>
-                </div>
+                <p class="card-kicker">Top CTR</p>
+                <h3 class="card-title">Top 5 by CTR</h3>
+                <div class="chart-wrapper"><canvas id="bonTopCtrChart"></canvas></div>
               </div>
             </div>
+          </section>
 
-            <div class="charts-grid" style="margin-top:1rem;">
+          <!-- ORDINAIRE PERFORMANCE -->
+          <section class="section section-dark company-section company-section--ord" id="ordPerformanceSection">
+            <div class="section-heading company-section-heading">
+              <div>
+                <p class="section-kicker company-kicker">Ordinaire</p>
+                <h2 class="section-title">Ordinaire Performance</h2>
+              </div>
+              <span id="ordFreshnessLabel" class="freshness-label" title="">--</span>
+            </div>
+
+            <div class="mini-kpi-strip" id="ordMiniKpis">
+              <div class="mini-kpi"><span class="mini-kpi-label">Spend</span><strong class="mini-kpi-value" id="ord-mini-spend">0</strong></div>
+              <div class="mini-kpi"><span class="mini-kpi-label">Impr.</span><strong class="mini-kpi-value" id="ord-mini-impressions">0</strong></div>
+              <div class="mini-kpi"><span class="mini-kpi-label">Clicks</span><strong class="mini-kpi-value" id="ord-mini-clicks">0</strong></div>
+              <div class="mini-kpi"><span class="mini-kpi-label">CTR</span><strong class="mini-kpi-value" id="ord-mini-ctr">0%</strong></div>
+              <div class="mini-kpi"><span class="mini-kpi-label">CPC</span><strong class="mini-kpi-value" id="ord-mini-cpc">0</strong></div>
+              <div class="mini-kpi"><span class="mini-kpi-label">Purch.</span><strong class="mini-kpi-value" id="ord-mini-purchases">0</strong></div>
+            </div>
+
+            <div class="chart-grid-2col">
+              <div class="chart-card chart-card-wide">
+                <p class="card-kicker">Trend</p>
+                <h3 class="card-title">Spend Over Time</h3>
+                <div class="chart-wrapper chart-wrapper-wide"><canvas id="ordSpendTrendChart"></canvas></div>
+              </div>
               <div class="chart-card">
+                <p class="card-kicker">Ranking</p>
+                <h3 class="card-title">Top Campaigns by Spend</h3>
+                <div class="chart-wrapper"><canvas id="ordTopCampaignsChart"></canvas></div>
+              </div>
+              <div class="chart-card">
+                <p class="card-kicker">Allocation</p>
+                <h3 class="card-title">Spend by Objective</h3>
+                <div class="chart-wrapper"><canvas id="ordObjectiveChart"></canvas></div>
+              </div>
+              <div class="chart-card">
+                <p class="card-kicker">Status</p>
+                <h3 class="card-title">Spend by Status</h3>
+                <div class="chart-wrapper"><canvas id="ordStatusChart"></canvas></div>
+              </div>
+              <div class="chart-card chart-card-wide">
+                <p class="card-kicker">Efficiency</p>
+                <h3 class="card-title">CTR vs CPC</h3>
+                <div class="chart-wrapper chart-wrapper-wide"><canvas id="ordScatterChart"></canvas></div>
+              </div>
+              <div class="chart-card">
+                <p class="card-kicker">Top CTR</p>
+                <h3 class="card-title">Top 5 by CTR</h3>
+                <div class="chart-wrapper"><canvas id="ordTopCtrChart"></canvas></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ACCOUNT-LEVEL MESSAGING -->
+          <section class="section section-dark messaging-section" id="messagingSection">
+            <div class="section-heading">
+              <p class="section-kicker">Messaging</p>
+              <h2 class="section-title">Account-level Messaging &amp; Outcomes</h2>
+            </div>
+            <p class="messaging-note">These charts aggregate at the ad-account level (Meta does not attribute leads to campaigns on a daily basis). They cannot be split per company.</p>
+            <div class="chart-grid-2col">
+              <div class="chart-card chart-card-wide">
                 <p class="card-kicker">Messaging</p>
                 <h3 class="card-title">Msg Contacts — Daily</h3>
-                <div class="chart-wrapper">
-                  <canvas id="msgDailyChart"></canvas>
-                </div>
+                <div class="chart-wrapper chart-wrapper-wide"><canvas id="msgDailyChart"></canvas></div>
               </div>
               <div class="chart-card">
                 <p class="card-kicker">Messaging</p>
                 <h3 class="card-title">Msg Contacts — Weekly</h3>
-                <div class="chart-wrapper">
-                  <canvas id="msgWeeklyChart"></canvas>
-                </div>
+                <div class="chart-wrapper"><canvas id="msgWeeklyChart"></canvas></div>
+              </div>
+              <div class="chart-card chart-card-wide">
+                <p class="card-kicker">Outcomes</p>
+                <h3 class="card-title">Actions Breakdown</h3>
+                <div class="chart-wrapper chart-wrapper-wide"><canvas id="actionsChart"></canvas></div>
               </div>
             </div>
           </section>

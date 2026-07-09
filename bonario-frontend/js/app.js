@@ -1,5 +1,5 @@
 import api, { setRefreshSecret } from './api-client.js';
-import { updateCharts } from './charts.js';
+import { renderCompanySections } from './charts.js';
 import {
   applyFilters, sortCampaigns, expandToAds, sortAds,
   classifyCampaignCompany, filterCampaignsByCompany, aggregateByAdSet, sortAdSets
@@ -455,11 +455,51 @@ function render() {
   updateKPIs(filtered);
 
   if (state.currentPage === 'overview') {
-    updateCharts(filtered, state.insights, state.history, state.accountDaily);
+    // Split by company for the per-company sections
+    const bonCampaigns = filterCampaignsByCompany(state.rawData, 'bon');
+    const ordCampaigns = filterCampaignsByCompany(state.rawData, 'ord');
+    renderCompanySections({
+      bonCampaigns,
+      ordCampaigns,
+      accountDaily: state.accountDaily
+    });
+    renderMiniKpis('bon');
+    renderMiniKpis('ord');
   }
 
   renderDetailTable(filtered);
   updateFreshness();
+}
+
+// Render the 6-card mini-KPI strip in each company section
+function renderMiniKpis(companyId) {
+  const campaigns = filterCampaignsByCompany(state.rawData, companyId);
+  let spend = 0, impressions = 0, clicks = 0, purchases = 0;
+  for (const c of campaigns) {
+    const i = c.insights || {};
+    spend += i.spend || 0;
+    impressions += i.impressions || 0;
+    clicks += i.clicks || 0;
+    purchases += i.purchases || 0;
+  }
+  const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+  const cpc = clicks > 0 ? spend / clicks : 0;
+  const set = (id, val) => {
+    const el = document.getElementById(`${companyId}-${id}`);
+    if (el) el.textContent = val;
+  };
+  set('mini-spend', formatCurrency(spend));
+  set('mini-impressions', formatNumber(impressions));
+  set('mini-clicks', formatNumber(clicks));
+  set('mini-ctr', formatNumber(ctr, 2) + '%');
+  set('mini-cpc', formatCurrency(cpc));
+  set('mini-purchases', formatNumber(purchases));
+
+  const freshnessEl = document.getElementById(`${companyId}FreshnessLabel`);
+  if (freshnessEl) {
+    freshnessEl.textContent = state.lastUpdated ? freshnessLabel(state.lastUpdated) : '--';
+    freshnessEl.title = state.lastUpdated ? new Date(state.lastUpdated).toLocaleString() : '';
+  }
 }
 
 function navigateToPage(page) {
@@ -479,8 +519,13 @@ function navigateToPage(page) {
   });
 
   if (page === 'overview') {
-    const filtered = getFilteredCampaigns();
-    updateCharts(filtered, state.insights, state.history, state.accountDaily);
+    const bonCampaigns = filterCampaignsByCompany(state.rawData, 'bon');
+    const ordCampaigns = filterCampaignsByCompany(state.rawData, 'ord');
+    renderCompanySections({
+      bonCampaigns,
+      ordCampaigns,
+      accountDaily: state.accountDaily
+    });
   }
 }
 
